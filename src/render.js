@@ -46,13 +46,13 @@ const labelPlayer2Img = new Image();
 labelPlayer2Img.crossOrigin = "anonymous";
 labelPlayer2Img.src = "/images/label_player_2.png";
 
-const badge8bitRecordImg = new Image();
-badge8bitRecordImg.crossOrigin = "anonymous";
-badge8bitRecordImg.src = "/images/badge_8bit_record.png";
+const buttonZanovoImg = new Image();
+buttonZanovoImg.crossOrigin = "anonymous";
+buttonZanovoImg.src = "/images/button_zanovo.png?v=5";
 
-const badgeWin8bitImg = new Image();
-badgeWin8bitImg.crossOrigin = "anonymous";
-badgeWin8bitImg.src = "/images/badge_win_8bit.png";
+const buttonRezhimSnaImg = new Image();
+buttonRezhimSnaImg.crossOrigin = "anonymous";
+buttonRezhimSnaImg.src = "/images/button_rezhim_sna.png?v=14";
 
 // Декоративные элементы (doodles)
 const doodleBottomLeftImg = new Image();
@@ -168,6 +168,11 @@ export class Renderer {
     this.particles = [];
     this.mascotPopups = []; // Маскоты, появляющиеся при отбивании/голах
     this.layout = computeSceneLayout(0, 0);
+    this.bottomButtonRects = null;
+  }
+
+  getBottomButtonRects() {
+    return this.bottomButtonRects;
   }
 
   setSize(w, h) {
@@ -671,54 +676,43 @@ export class Renderer {
 
   drawBottomButtons(bottomButtons, field, min) {
     const ctx = this.ctx;
-    const btnH = bottomButtons.h;
+    const btnH = bottomButtons.h * 1.2;
+    const btnY = bottomButtons.y;
+
+    // Обрезка прозрачных полей PNG (нормализованные границы непрозрачной области).
+    const trimRect = (x, y, w, h, norm) => ({
+      x: x + w * norm.x,
+      y: y + h * norm.y,
+      w: w * norm.w,
+      h: h * norm.h,
+    });
+
+    const zanovoTrim = { x: 16 / 1024, y: 25 / 341, w: 983 / 1024, h: 278 / 341 };
 
     ctx.save();
 
-    // Используем PNG badges из архива
-    if (badge8bitRecordImg.complete && badge8bitRecordImg.naturalWidth > 0) {
-      const imgH = btnH * 1.2;
-      const imgW = (badge8bitRecordImg.naturalWidth / badge8bitRecordImg.naturalHeight) * imgH;
-      ctx.drawImage(badge8bitRecordImg, field.x, bottomButtons.y, imgW, imgH);
-    } else {
-      // Fallback левая кнопка
-      const btnW1 = min * 0.14;
-      const btn1X = field.x;
-      const btn1Y = bottomButtons.y;
-      ctx.fillStyle = BRAND.colors.accent;
-      ctx.beginPath();
-      ctx.roundRect(btn1X, btn1Y, btnW1, btnH, 6);
-      ctx.fill();
-      ctx.font = `500 ${min * 0.014}px ${BRAND.fonts.brand}`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillStyle = "#ffffff";
-      ctx.fillText("8БИТ-РЕКОРД", btn1X + btnW1 / 2, btn1Y + btnH / 2);
-      drawBug(ctx, btn1X + min * 0.016, btn1Y + btnH / 2, min * 0.012, "#ffffff");
+    let restartRect = null;
+    let sleepRect = null;
+
+    if (buttonZanovoImg.complete && buttonZanovoImg.naturalWidth > 0) {
+      const imgH = btnH;
+      const imgW = (buttonZanovoImg.naturalWidth / buttonZanovoImg.naturalHeight) * imgH;
+      const restartX = field.x;
+      ctx.drawImage(buttonZanovoImg, restartX, btnY, imgW, imgH);
+      restartRect = trimRect(restartX, btnY, imgW, imgH, zanovoTrim);
     }
 
-    if (badgeWin8bitImg.complete && badgeWin8bitImg.naturalWidth > 0) {
+    if (buttonRezhimSnaImg.complete && buttonRezhimSnaImg.naturalWidth > 0) {
       const imgH = btnH * 1.2;
-      const imgW = (badgeWin8bitImg.naturalWidth / badgeWin8bitImg.naturalHeight) * imgH;
-      ctx.drawImage(badgeWin8bitImg, field.x + field.w - imgW, bottomButtons.y, imgW, imgH);
-    } else {
-      // Fallback правая кнопка
-      const btnW2 = min * 0.18;
-      const btn2X = field.x + field.w - btnW2;
-      const btn1Y = bottomButtons.y;
-      ctx.fillStyle = BRAND.colors.bg;
-      ctx.strokeStyle = BRAND.colors.accent;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.roundRect(btn2X, btn1Y, btnW2, btnH, 6);
-      ctx.fill();
-      ctx.stroke();
-      ctx.font = `500 ${min * 0.011}px ${BRAND.fonts.brand}`;
-      ctx.fillStyle = BRAND.colors.text;
-      ctx.fillText("ПОБЕЖДАЙ ПО-8БИТНОМУ!", btn2X + btnW2 / 2, btn1Y + btnH / 2);
-      drawBug(ctx, btn2X + min * 0.015, btn1Y + btnH / 2, min * 0.01, BRAND.colors.accent);
-      drawStar(ctx, btn2X + btnW2 - min * 0.02, btn1Y + btnH / 2, min * 0.008, BRAND.colors.accent, 1.5);
+      const imgW = (buttonRezhimSnaImg.naturalWidth / buttonRezhimSnaImg.naturalHeight) * imgH;
+      const sleepX = field.x + field.w - imgW;
+      const sleepY = btnY - (imgH - btnH) / 2;
+      ctx.drawImage(buttonRezhimSnaImg, sleepX, sleepY, imgW, imgH);
+      sleepRect = { x: sleepX, y: sleepY, w: imgW, h: imgH };
     }
+
+    this.bottomButtonRects =
+      restartRect && sleepRect ? { restart: restartRect, sleep: sleepRect } : null;
 
     ctx.restore();
   }

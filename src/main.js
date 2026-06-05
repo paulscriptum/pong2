@@ -87,6 +87,9 @@ function startMatch() {
 function goAttract() {
   qrCanvas = null;
   game.clearInput();
+  game.resetMatch();
+  renderer.clearParticles();
+  renderer.clearMascots();
   // Скрываем кнопки в standby режиме
   document.getElementById("controls").style.display = "none";
   setState(STATE.ATTRACT);
@@ -118,6 +121,54 @@ function tryFullscreen() {
       if (p && p.catch) p.catch(() => {});
     } catch (_) {}
   }
+}
+
+function hitRect(rect, x, y) {
+  return x >= rect.x && x <= rect.x + rect.w && y >= rect.y && y <= rect.y + rect.h;
+}
+
+function handleBottomButtonClick(x, y) {
+  if (state === STATE.ATTRACT) return false;
+
+  const rects = renderer.getBottomButtonRects();
+  if (!rects) return false;
+
+  // Сначала «Режим сна» — у правой кнопки раньше была широкая прозрачная зона.
+  if (hitRect(rects.sleep, x, y)) {
+    Sfx.unlock();
+    goAttract();
+    return true;
+  }
+  if (hitRect(rects.restart, x, y)) {
+    Sfx.unlock();
+    startMatch();
+    return true;
+  }
+  return false;
+}
+
+function pointerToCanvasCoords(e) {
+  const bounds = canvas.getBoundingClientRect();
+  return {
+    x: e.clientX - bounds.left,
+    y: e.clientY - bounds.top,
+    inside:
+      e.clientX >= bounds.left &&
+      e.clientX <= bounds.right &&
+      e.clientY >= bounds.top &&
+      e.clientY <= bounds.bottom,
+  };
+}
+
+function onCanvasPointerDown(e) {
+  const { x, y, inside } = pointerToCanvasCoords(e);
+  if (!inside) return false;
+  if (handleBottomButtonClick(x, y)) {
+    e.preventDefault();
+    e.stopPropagation();
+    return true;
+  }
+  return false;
 }
 
 function onUserTap() {
@@ -441,38 +492,34 @@ function init() {
   setupControls({
     onFirstGesture: () => Sfx.unlock(),
     onInput: (player, dir, isDown) => {
-      if (isDown && onUserTap()) return;
       game.setInput(player, dir, isDown);
     },
   });
 
   canvas.addEventListener("pointerdown", (e) => {
+    if (onCanvasPointerDown(e)) return;
     e.preventDefault();
     onUserTap();
   });
+
+  // Нижние кнопки — ловим в capture, чтобы клик не уходил в другие обработчики.
+  document.addEventListener(
+    "pointerdown",
+    (e) => {
+      if (onCanvasPointerDown(e)) return;
+      if (state === STATE.ATTRACT) onUserTap();
+    },
+    true
+  );
   
-  // Fallback: клик по всему документу в attract режиме
-  document.addEventListener("pointerdown", (e) => {
-    if (state === STATE.ATTRACT) {
-      onUserTap();
-    }
-  });
-  
-  // Дополнительные события для совместимости
+  // Дополнительные события для совместимости (только standby).
   document.addEventListener("mousedown", (e) => {
-    if (state === STATE.ATTRACT) {
-      onUserTap();
-    }
+    if (state !== STATE.ATTRACT) return;
+    onUserTap();
   });
   document.addEventListener("touchstart", (e) => {
-    if (state === STATE.ATTRACT) {
-      onUserTap();
-    }
-  });
-  document.addEventListener("click", (e) => {
-    if (state === STATE.ATTRACT) {
-      onUserTap();
-    }
+    if (state !== STATE.ATTRACT) return;
+    onUserTap();
   });
 
   requestAnimationFrame(frame);
